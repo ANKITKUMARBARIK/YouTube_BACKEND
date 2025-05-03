@@ -1,0 +1,18 @@
+{
+  "name": "youtube-backend-project",
+  "version": "1.0.0",
+  "description": "a backend of youtube",
+  "keywords": [
+    "js",
+    "node",
+    "express",
+    "mongodb"
+  ],
+  "license": "ISC",
+  "author": "Ankit Kumar Barik",
+  "type": "commonjs",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  }
+}
