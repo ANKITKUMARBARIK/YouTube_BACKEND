@@ -19,8 +19,22 @@ export const registerUser = asyncHandler(async (req, res) => {
         throw new ApiError(409, "Email or Username Already Exists");
 
     // check for images, get user avatar,coverImage from frontend
-    const avatarLocalPath = req.files?.avatar[0]?.path;
-    const coverImageLocalPath = req.files?.coverImage[0]?.path;
+    console.log(req.files);
+    let avatarLocalPath, coverImageLocalPath;
+    if (
+        req.files &&
+        Array.isArray(req.files.avatar) &&
+        req.files.avatar.length > 0
+    ) {
+        avatarLocalPath = req.files.avatar[0].path;
+    }
+    if (
+        req.files &&
+        Array.isArray(req.files.coverImage) &&
+        req.files.coverImage.length > 0
+    ) {
+        coverImageLocalPath = req.files.coverImage[0].path;
+    }
     if (!avatarLocalPath) throw new ApiError(400, "Avatar file is required");
 
     // check for images, upload them to cloudinary, (avatar,coverImage)
