@@ -8,8 +8,8 @@ const generateAccessAndRefreshToken = async (userId) => {
     try {
         const user = await User.findById(userId);
         // generate access and refresh token
-        const accessToken = user.generateAccessToken();
-        const refreshToken = user.generateRefreshToken();
+        const accessToken = await user.generateAccessToken();
+        const refreshToken = await user.generateRefreshToken();
 
         // save refresh token in db
         user.refreshToken = refreshToken;
@@ -145,7 +145,7 @@ export const loginUser = asyncHandler(async (req, res) => {
 
     // get user data without sensitive infos.
     const user = await User.findById(existedUser._id).select(
-        "-password refreshToken"
+        "-password -refreshToken"
     );
 
     // cookie options - secure true only in production
