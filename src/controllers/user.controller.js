@@ -254,3 +254,158 @@ export const refreshAccessToken = asyncHandler(async (req, res) => {
             )
         );
 });
+
+export const changeCurrentPassword = asyncHandler(async (req, res) => {
+    /*
+    TODO:-
+        - get and check old, new, confirm password from frontend
+        - check user in db
+        - check/compare old password and db password
+        - update and save db password into confirm password
+        - return res
+    */
+
+    // get and check old, new, confirm password from frontend
+    const { oldPassword, newPassword, confirmPassword } = req.body;
+    if (
+        [oldPassword, newPassword, confirmPassword].some(
+            (field) => !field?.trim()
+        )
+    )
+        throw new ApiError(400, "");
+
+    if (oldPassword === newPassword)
+        throw new ApiError(
+            1,
+            "Old password and New Password must be different"
+        );
+
+    if (newPassword !== confirmPassword)
+        throw new ApiError(
+            401,
+            "New password and Confirm Password must be equal"
+        );
+
+    // check user in db
+    const user = await User.findById(req.user?._id);
+    if (!user) throw new ApiError(400, "User not found");
+
+    // check/compare old password and db password
+    const comparePassword = await user.comparePassword(oldPassword);
+    if (!comparePassword) throw new ApiError(401, "Invalid Old Password");
+
+    // update and save db password into confirm password
+    user.password = confirmPassword;
+    await user.save({ validateBeforeSave: false });
+
+    // return res
+    return res
+        .status(200)
+        .json(new ApiResponse(200, {}, "Password changed successfully"));
+});
+
+export const getCurrentUser = asyncHandler(async (req, res) => {
+    return res
+        .status(200)
+        .json(
+            new ApiResponse(200, req.user, "Current user fetched successfully")
+        );
+});
+
+export const updateAccountDetails = asyncHandler(async (req, res) => {
+    /* 
+    NOTE:-
+        Production level par file updates (jaise image) ke liye alag controller aur endpoint banao. Sirf required data update karo, pura user object wapas bhejna avoid karo.
+    */
+
+    /*
+    TODO:-
+        - get body(text based data) details like- username,email,fullName
+        - check user in db and update
+        - return res
+    */
+
+    // get body(text based data) details like- username,email,fullName
+    const { username, email, fullName } = req.body;
+
+    // check user in db and update
+    const user = await User.findByIdAndUpdate(
+        req.user?._id,
+        { $set: { username, email, fullName } },
+        { new: true }
+    ).select("-password -refreshToken");
+    if (!user) throw new ApiError(401, "Invalid Old Password");
+
+    // return res
+    return res
+        .status(200)
+        .json(
+            new ApiResponse(200, user, "Account details updated successfully")
+        );
+});
+
+export const updateUserAvatar = asyncHandler(async (req, res) => {
+    /*
+    TODO:-
+        - get and check body(file based data) details like- avatar or coverImage
+        - now upload on cloudinary
+        - check user in db and update
+        - return res
+    */
+
+    // get and check body(file based data) details like- avatar or coverImage
+    let avatarLocalPath = req.file?.path;
+    if (!avatarLocalPath) {
+        throw new ApiError(400, "Avatar file is missing");
+    }
+
+    // now upload on cloudinary
+    const avatar = await uploadOnCloudinary(avatarLocalPath);
+    if (!avatar?.url)
+        throw new ApiError(401, "Error while uploading on avatar");
+
+    // check user in db and update
+    const user = await User.findByIdAndUpdate(
+        req.user._id,
+        { $set: { avatar: avatar.url } },
+        { new: true }
+    ).select("-password -refreshToken");
+
+    // return res
+    return res
+        .status(200)
+        .json(new ApiResponse(200, user, "Avatar updated successfully"));
+});
+
+export const updateUserCoverImage = asyncHandler(async (req, res) => {
+    /*
+    TODO:-
+        - get and check body(file based data) details like- avatar or coverImage
+        - now upload on cloudinary
+        - check user in db and update
+        - return res
+    */
+
+    // get and check body(file based data) details like- avatar or coverImage
+    let coverImageLocalPath = req.file?.path;
+    if (!coverImageLocalPath) {
+        throw new ApiError(400, "CoverImage file is missing");
+    }
+
+    // now upload on cloudinary
+    const coverImage = await uploadOnCloudinary(coverImageLocalPath);
+    if (!coverImage?.url)
+        throw new ApiError(401, "Error while uploading on coverImage");
+
+    // check user in db and update
+    const user = await User.findByIdAndUpdate(
+        req.user._id,
+        { $set: { coverImage: coverImage.url } },
+        { new: true }
+    ).select("-password -refreshToken");
+
+    // return res
+    return res
+        .status(200)
+        .json(new ApiResponse(200, user, "CoverImage updated successfully"));
+});
