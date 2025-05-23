@@ -5,7 +5,7 @@ import uploadOnCloudinary from "../utils/cloudinary.js";
 import ApiResponse from "../utils/ApiResponse.js";
 import jwt from "jsonwebtoken";
 
-const generateAccessAndRefreshToken = async (userId) => {
+export const generateAccessAndRefreshToken = async (userId) => {
     try {
         const user = await User.findById(userId);
         // generate access and refresh token
@@ -334,7 +334,8 @@ export const updateAccountDetails = asyncHandler(async (req, res) => {
         { $set: { username, email, fullName } },
         { new: true }
     ).select("-password -refreshToken");
-    if (!user) throw new ApiError(401, "Invalid Old Password");
+    if (!user)
+        throw new ApiError(401, "Something wrong while updating account");
 
     // return res
     return res
@@ -408,4 +409,89 @@ export const updateUserCoverImage = asyncHandler(async (req, res) => {
     return res
         .status(200)
         .json(new ApiResponse(200, user, "CoverImage updated successfully"));
+});
+
+export const getUserChannelProfile = asyncHandler(async (req, res) => {
+    /*
+    NOTE:-
+        // Aggregation pipeline ek sequence hota hai stages ka, jisme har stage documents ko process karta hai. Aur transformed data agle stage ko pass karta hai, jisse hum complex data queries aur transformations kar sakte hain
+    */
+
+    // Validate if username is passed in URL
+    const { username } = req.params;
+    if (!username?.trim())
+        throw new ApiError(400, "(in url: param) - username is missing");
+
+    // 🔍 Start aggregation on User collection
+    const channel = await User.aggregate([
+        {
+            // match stage - sirf us user ko lo jiska username match kare
+            $match: {
+                username: username?.toLowerCase(),
+            },
+        },
+        {
+            // lookup stage - hum User collection ko Subscription collection se join kar rahe hain
+            $lookup: {
+                from: "Subscriptions",  // Kis collection se data lana hai (foreign collection)
+                localField: "_id",  // Is collection ka kaunsa field connect karega
+                foreignField: "channel",  // Foreign collection ka kaunsa field match karega
+                as: "subscribers",  // Jo naam dena hai naye array field ka result mein
+            },
+        },
+        {
+            $lookup: {
+                from: "Subscriptions",
+                localField: "_id",
+                foreignField: "subscriber",
+                as: "subscribedTo",
+            },
+        },
+        {
+            // addFields stage - New field add karne ya existing fields ko modify karne ke liye
+            $addFields: {
+                // Total number of subscribers
+                subscribersCount: {
+                    $size: "$subscribers",
+                },
+                // Total number of channels this user has subscribed to
+                channelsSubscribedToCount: {
+                    $size: "$subscribedTo",
+                },
+                // Check if the logged-in user is subscribed to this channel
+                isSubscribed: {
+                    $cond: {
+                        if: { $in: [req.user?._id, "$subscribers.subscriber"] },
+                        then: true,
+                        else: false,
+                    },
+                },
+            },
+        },
+        {
+            // project stage - specify karte hain ki output mein kaunse fields chahiye(1) aur kaunse nahi(0)
+            $project: {
+                username: 1,
+                fullName: 1,
+                email: 1,
+                avatar: 1,
+                coverImage: 1,
+                subscribersCount: 1,
+                channelsSubscribedToCount: 1,
+                isSubscribed: 1,
+            },
+        },
+    ]);
+    console.log(channel);
+    if (!channel?.length) throw new ApiError(404, "channel does not exists");
+
+    return res
+        .status(200)
+        .json(
+            new ApiResponse(
+                200,
+                channel[0],
+                "User channel fetched successfully"
+            )
+        );
 });
