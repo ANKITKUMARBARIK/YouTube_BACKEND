@@ -4,6 +4,7 @@ import User from "../models/user.model.js";
 import uploadOnCloudinary from "../utils/cloudinary.js";
 import ApiResponse from "../utils/ApiResponse.js";
 import jwt from "jsonwebtoken";
+import mongoose from "mongoose";
 
 export const generateAccessAndRefreshToken = async (userId) => {
     try {
@@ -414,7 +415,11 @@ export const updateUserCoverImage = asyncHandler(async (req, res) => {
 export const getUserChannelProfile = asyncHandler(async (req, res) => {
     /*
     NOTE:-
-        // Aggregation pipeline ek sequence hota hai stages ka, jisme har stage documents ko process karta hai. Aur transformed data agle stage ko pass karta hai, jisse hum complex data queries aur transformations kar sakte hain
+        // Aggregation pipeline ek sequence hota hai stages ka, jisme har stage documents ko process karta hai. Aur transformed data agle stage ko pass karta hai, jisse hum complex data queries aur transformations kar sakte hain. Aggregation always returns an array, even for a single or no document
+
+        🔖 req.user._id is a string, Mongoose auto-converts it to ObjectId behind the scenes
+
+        🔖 In aggregation, manually convert string _id to ObjectId to avoid errors
     */
 
     // Validate if username is passed in URL
@@ -433,15 +438,15 @@ export const getUserChannelProfile = asyncHandler(async (req, res) => {
         {
             // lookup stage - hum User collection ko Subscription collection se join kar rahe hain
             $lookup: {
-                from: "Subscriptions",  // Kis collection se data lana hai (foreign collection)
-                localField: "_id",  // Is collection ka kaunsa field connect karega
-                foreignField: "channel",  // Foreign collection ka kaunsa field match karega
-                as: "subscribers",  // Jo naam dena hai naye array field ka result mein
+                from: "subscriptions", // Kis collection se data lana hai (foreign collection)
+                localField: "_id", // Is collection ka kaunsa field connect karega
+                foreignField: "channel", // Foreign collection ka kaunsa field match karega
+                as: "subscribers", // Jo naam dena hai naye array field ka result mein
             },
         },
         {
             $lookup: {
-                from: "Subscriptions",
+                from: "subscriptions",
                 localField: "_id",
                 foreignField: "subscriber",
                 as: "subscribedTo",
@@ -492,6 +497,63 @@ export const getUserChannelProfile = asyncHandler(async (req, res) => {
                 200,
                 channel[0],
                 "User channel fetched successfully"
+            )
+        );
+});
+
+export const getWatchHistory = asyncHandler(async (req, res) => {
+    // 🔖 For aggregation, manually convert string _id to ObjectId using mongoose.Types.ObjectId
+
+    const user = await User.aggregate([
+        {
+            $match: {
+                _id: new mongoose.Types.ObjectId(req.user._id),
+            },
+        },
+        {
+            $lookup: {
+                from: "videos",
+                localField: "watchHistory",
+                foreignField: "_id",
+                as: "watchHistory",
+                pipeline: [
+                    {
+                        $lookup: {
+                            from: "users",
+                            localField: "owner",
+                            foreignField: "_id",
+                            as: "owner",
+                            pipeline: [
+                                {
+                                    $project: {
+                                        fullName: 1,
+                                        username: 1,
+                                        avatar: 1,
+                                    },
+                                },
+                            ],
+                        },
+                    },
+                    {
+                        $addFields: {
+                            owner: {
+                                $first: "$owner",
+                            },
+                        },
+                    },
+                ],
+            },
+        },
+    ]);
+    console.log(user);
+
+    return res
+        .status(200)
+        .json(
+            new ApiResponse(
+                200,
+                user[0].watchHistory,
+                "Watch history fetched successfully"
             )
         );
 });
