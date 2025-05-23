@@ -273,11 +273,11 @@ export const changeCurrentPassword = asyncHandler(async (req, res) => {
             (field) => !field?.trim()
         )
     )
-        throw new ApiError(400, "");
+        throw new ApiError(400, "all fields is required");
 
     if (oldPassword === newPassword)
         throw new ApiError(
-            1,
+            401,
             "Old password and New Password must be different"
         );
 
