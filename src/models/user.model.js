@@ -1,4 +1,4 @@
-import mongoose, { Schema, model } from "mongoose";
+import { Schema, model } from "mongoose";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 // https://jwtsecret.com/generate - Generate secret key
@@ -35,7 +35,7 @@ const userSchema = new Schema(
         },
         watchHistory: [
             {
-                type: mongoose.Schema.Types.ObjectId,
+                type: Schema.Types.ObjectId,
                 ref: "Video",
             },
         ],
